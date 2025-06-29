@@ -29,9 +29,7 @@ contract MizanDepositToken is ERC20, IMizanDepositToken {
         _burn(from, amount);
     }
 
-    function balanceOf(
-        address account
-    ) public view override(ERC20, IMizanDepositToken) returns (uint256) {
+    function balanceOf(address account) public view override(ERC20, IMizanDepositToken) returns (uint256) {
         return super.balanceOf(account);
     }
 }
@@ -56,9 +54,7 @@ contract MizanLoanToken is ERC20, IMizanLoanToken {
         _burn(from, amount);
     }
 
-    function balanceOf(
-        address account
-    ) public view override(ERC20, IMizanLoanToken) returns (uint256) {
+    function balanceOf(address account) public view override(ERC20, IMizanLoanToken) returns (uint256) {
         return super.balanceOf(account);
     }
 }
@@ -91,11 +87,7 @@ contract Mizan is Ownable {
     uint256 public bnplLoans;
     uint256 public bnplRevenue;
 
-    constructor(
-        address _underlyingToken,
-        address _relayer,
-        address _bnplContract
-    ) Ownable(msg.sender) {
+    constructor(address _underlyingToken, address _relayer, address _bnplContract) Ownable(msg.sender) {
         require(_underlyingToken != address(0), "Invalid underlying token");
         require(_relayer != address(0), "Invalid relayer address");
 
@@ -132,23 +124,15 @@ contract Mizan is Ownable {
 
     function unstake(uint256 depositTokenAmount) external {
         require(depositTokenAmount > 0, "Invalid amount");
-        require(
-            depositToken.balanceOf(msg.sender) >= depositTokenAmount,
-            "Insufficient deposit tokens"
-        );
+        require(depositToken.balanceOf(msg.sender) >= depositTokenAmount, "Insufficient deposit tokens");
 
         // Check for outstanding loans
         require(
-            LongTermLoan.getBorrowedAmount(
-                IMizanLoanToken(address(loanToken)),
-                msg.sender
-            ) == 0,
-            "Outstanding loans"
+            LongTermLoan.getBorrowedAmount(IMizanLoanToken(address(loanToken)), msg.sender) == 0, "Outstanding loans"
         ); // TODO: There may be an outstanding loan. But just need to ensure the LTV can be met if unstaking.
 
         // Calculate withdrawal amount based on pool ratio
-        uint256 withdrawAmount = (depositTokenAmount * totalLiquidity) /
-            totalLiquidityTokens;
+        uint256 withdrawAmount = (depositTokenAmount * totalLiquidity) / totalLiquidityTokens;
         require(withdrawAmount > 0, "Zero withdrawal amount");
 
         // Update pool accounting
@@ -166,13 +150,9 @@ contract Mizan is Ownable {
         require(amount > 0, "Invalid amount");
 
         // Calculate available loan reserve
-        uint256 availableLoanReserve = (totalLiquidity * LOAN_RESERVE_RATIO) /
-            100;
+        uint256 availableLoanReserve = (totalLiquidity * LOAN_RESERVE_RATIO) / 100;
         uint256 currentLoans = loanToken.totalSupply();
-        require(
-            amount <= availableLoanReserve - currentLoans,
-            "Amount exceeds loan reserve"
-        );
+        require(amount <= availableLoanReserve - currentLoans, "Amount exceeds loan reserve");
 
         // Disburse loan
         require(
@@ -191,11 +171,7 @@ contract Mizan is Ownable {
         require(amount > 0, "Invalid amount");
         require(
             LongTermLoan.repayLoan(
-                address(this),
-                IMizanLoanToken(address(loanToken)),
-                underlyingToken,
-                msg.sender,
-                amount
+                address(this), IMizanLoanToken(address(loanToken)), underlyingToken, msg.sender, amount
             ),
             "Loan repayment failed"
         );
@@ -214,22 +190,13 @@ contract Mizan is Ownable {
         require(!usedNonces[meta.nonce], "Nonce used");
 
         bool success = FlashLoan.borrow(
-            address(this),
-            relayer,
-            profitSharePercentage,
-            usedNonces,
-            _loanToken,
-            loanAmount,
-            meta,
-            signature
+            address(this), relayer, profitSharePercentage, usedNonces, _loanToken, loanAmount, meta, signature
         );
         require(success, "FlashLoan: execution failed");
     }
 
     // Pure functions for hashing and encoding
-    function hashProfitMetadata(
-        FlashLoan.ProfitMetadata[] calldata data
-    ) external pure returns (bytes32) {
+    function hashProfitMetadata(FlashLoan.ProfitMetadata[] calldata data) external pure returns (bytes32) {
         return FlashLoan.hashProfitMetadata(data);
     }
 
@@ -240,14 +207,7 @@ contract Mizan is Ownable {
         bytes32 nonce,
         bytes32 profitHash
     ) external pure returns (bytes32) {
-        return
-            FlashLoan.hashFlashLoanRequest(
-                loanToken,
-                loanAmount,
-                expiry,
-                nonce,
-                profitHash
-            );
+        return FlashLoan.hashFlashLoanRequest(loanToken, loanAmount, expiry, nonce, profitHash);
     }
 
     function updateRelayer(address _relayer) external onlyOwner {
@@ -255,9 +215,7 @@ contract Mizan is Ownable {
         relayer = _relayer;
     }
 
-    function updateProfitSharePercentage(
-        uint256 _percentage
-    ) external onlyOwner {
+    function updateProfitSharePercentage(uint256 _percentage) external onlyOwner {
         require(_percentage <= 100, "Invalid percentage");
         profitSharePercentage = _percentage;
     }
@@ -273,30 +231,17 @@ contract Mizan is Ownable {
     }
 
     function getBorrowedAmount(address user) external view returns (uint256) {
-        return
-            LongTermLoan.getBorrowedAmount(
-                IMizanLoanToken(address(loanToken)),
-                user
-            );
+        return LongTermLoan.getBorrowedAmount(IMizanLoanToken(address(loanToken)), user);
     }
 
     function getPoolStats()
         external
         view
-        returns (
-            uint256 _totalLiquidity,
-            uint256 _availableLoanReserve,
-            uint256 _totalLiquidityTokens
-        )
+        returns (uint256 _totalLiquidity, uint256 _availableLoanReserve, uint256 _totalLiquidityTokens)
     {
-        uint256 availableLoanReserve = (totalLiquidity * LOAN_RESERVE_RATIO) /
-            100;
+        uint256 availableLoanReserve = (totalLiquidity * LOAN_RESERVE_RATIO) / 100;
         uint256 currentLoans = loanToken.totalSupply();
-        return (
-            totalLiquidity,
-            availableLoanReserve - currentLoans,
-            totalLiquidityTokens
-        );
+        return (totalLiquidity, availableLoanReserve - currentLoans, totalLiquidityTokens);
     }
 
     function requestBnplLoan(uint256 productId) external {
@@ -311,13 +256,13 @@ contract Mizan is Ownable {
         require(liquidityToUse >= productEarnings, "Insufficient liquidity");
 
         underlyingToken.transfer(productOwner, productEarnings);
-        bnplLoans += productEarnings; 
+        bnplLoans += productEarnings;
     }
 
     function repayBnplLoan(uint256 amount) external {
         require(amount > 0, "Invalid amount");
         require(msg.sender == bnplContract, "Not bnpl contract");
-        
+
         underlyingToken.transferFrom(msg.sender, address(this), amount);
         bnplRevenue += amount;
     }

@@ -39,21 +39,10 @@ library FlashLoan {
         bytes32 nonce,
         bytes32 profitHash
     ) public pure returns (bytes32) {
-        return
-            keccak256(
-                encodeFlashLoanRequest(
-                    loanToken,
-                    loanAmount,
-                    expiry,
-                    nonce,
-                    profitHash
-                )
-            );
+        return keccak256(encodeFlashLoanRequest(loanToken, loanAmount, expiry, nonce, profitHash));
     }
 
-    function encodeProfitMetadata(
-        ProfitMetadata[] calldata data
-    ) public pure returns (bytes memory) {
+    function encodeProfitMetadata(ProfitMetadata[] calldata data) public pure returns (bytes memory) {
         bytes memory encoded;
         for (uint256 i = 0; i < data.length; i++) {
             encoded = abi.encode(encoded, data[i].taker, data[i].token);
@@ -61,9 +50,7 @@ library FlashLoan {
         return encoded;
     }
 
-    function hashProfitMetadata(
-        ProfitMetadata[] calldata data
-    ) public pure returns (bytes32) {
+    function hashProfitMetadata(ProfitMetadata[] calldata data) public pure returns (bytes32) {
         return keccak256(encodeProfitMetadata(data));
     }
 
@@ -85,20 +72,12 @@ library FlashLoan {
         usedNonces[meta.nonce] = true;
 
         // Verify signature
-        if (
-            !_verifySignature(loanToken, loanAmount, meta, signature, relayer)
-        ) {
+        if (!_verifySignature(loanToken, loanAmount, meta, signature, relayer)) {
             revert("Invalid signature");
         }
 
         // Execute flash loan
-        bool ok = _executeFlashLoan(
-            mizan,
-            loanToken,
-            loanAmount,
-            meta,
-            profitSharePercentage
-        );
+        bool ok = _executeFlashLoan(mizan, loanToken, loanAmount, meta, profitSharePercentage);
         require(ok, "FlashLoan: strategy or profit failed");
         return true;
     }
@@ -110,19 +89,10 @@ library FlashLoan {
         bytes calldata signature,
         address relayer
     ) internal pure returns (bool) {
-        bytes32 messageHash = keccak256(
-            abi.encode(
-                loanToken,
-                loanAmount,
-                meta.expiry,
-                meta.nonce,
-                _hashProfitMetadata(meta.profits)
-            )
-        );
+        bytes32 messageHash =
+            keccak256(abi.encode(loanToken, loanAmount, meta.expiry, meta.nonce, _hashProfitMetadata(meta.profits)));
 
-        bytes32 ethSignedMessageHash = MessageHashUtils.toEthSignedMessageHash(
-            messageHash
-        );
+        bytes32 ethSignedMessageHash = MessageHashUtils.toEthSignedMessageHash(messageHash);
         return ECDSA.recover(ethSignedMessageHash, signature) == relayer;
     }
 
@@ -140,42 +110,27 @@ library FlashLoan {
         IERC20(loanToken).safeTransfer(msg.sender, loanAmount);
 
         // Execute strategy
-        (bool ok, ) = msg.sender.call(
-            abi.encodeWithSignature(
-                "executeStrategy(address,uint256)",
-                loanToken,
-                loanAmount
-            )
-        );
+        (bool ok,) = msg.sender.call(abi.encodeWithSignature("executeStrategy(address,uint256)", loanToken, loanAmount));
         require(ok, "FlashLoan: executeStrategy failed");
 
         // Require repayment - borrower needs to approve Mizan
         IERC20(loanToken).safeTransferFrom(msg.sender, mizan, loanAmount);
 
         // Calculate and collect profits
-        (uint256 totalProfit, ) = _calculateAndCollectProfits(
-            mizan,
-            meta.profits,
-            beforeBalances,
-            profitSharePercentage
-        );
+        (uint256 totalProfit,) = _calculateAndCollectProfits(mizan, meta.profits, beforeBalances, profitSharePercentage);
 
         require(totalProfit > 0, "FlashLoan: no profit detected");
         return true;
     }
 
-    function _snapshotBalances(
-        ProfitMetadata[] calldata profits
-    ) internal view returns (uint256[] memory) {
+    function _snapshotBalances(ProfitMetadata[] calldata profits) internal view returns (uint256[] memory) {
         uint256[] memory beforeBalances = new uint256[](profits.length);
         for (uint256 i = 0; i < profits.length; i++) {
             require(profits[i].taker != address(0), "Invalid profit taker");
             if (profits[i].token == address(0)) {
                 beforeBalances[i] = profits[i].taker.balance;
             } else {
-                beforeBalances[i] = IERC20(profits[i].token).balanceOf(
-                    profits[i].taker
-                );
+                beforeBalances[i] = IERC20(profits[i].token).balanceOf(profits[i].taker);
             }
         }
         return beforeBalances;
@@ -204,14 +159,10 @@ library FlashLoan {
                 uint256 fee = (profit * profitSharePercentage) / 100;
                 if (fee > 0) {
                     if (profits[i].token == address(0)) {
-                        (bool success, ) = mizan.call{value: fee}("");
+                        (bool success,) = mizan.call{value: fee}("");
                         if (!success) return (0, 0);
                     } else {
-                        IERC20(profits[i].token).safeTransferFrom(
-                            taker,
-                            mizan,
-                            fee
-                        );
+                        IERC20(profits[i].token).safeTransferFrom(taker, mizan, fee);
                     }
                     totalFee += fee;
                 }
@@ -219,9 +170,7 @@ library FlashLoan {
         }
     }
 
-    function _hashProfitMetadata(
-        ProfitMetadata[] calldata data
-    ) internal pure returns (bytes32) {
+    function _hashProfitMetadata(ProfitMetadata[] calldata data) internal pure returns (bytes32) {
         bytes memory packed;
         for (uint256 i = 0; i < data.length; i++) {
             packed = abi.encode(packed, data[i].taker, data[i].token);

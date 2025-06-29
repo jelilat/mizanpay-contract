@@ -44,9 +44,7 @@ interface IMizan {
     ) external;
 
     // Pure functions for hashing and encoding
-    function hashProfitMetadata(
-        IFlashLoan.ProfitMetadata[] calldata data
-    ) external pure returns (bytes32);
+    function hashProfitMetadata(IFlashLoan.ProfitMetadata[] calldata data) external pure returns (bytes32);
 
     function hashFlashLoanRequest(
         address loanToken,
@@ -70,12 +68,8 @@ interface IMizan {
     function getPoolStats()
         external
         view
-        returns (
-            uint256 _totalLiquidity,
-            uint256 _availableLoanReserve,
-            uint256 _totalLiquidityTokens
-        );
+        returns (uint256 _totalLiquidity, uint256 _availableLoanReserve, uint256 _totalLiquidityTokens);
 
     // Receive function
     receive() external payable;
-} 
+}

@@ -10,7 +10,7 @@ contract DeployScript is Script {
     address public usdc;
     address public ethUsdPriceFeed;
     address public relayer;
-    
+
     // Deployed contracts
     Mizan public mizan;
     BNPLCollateralLoan public bnplContract;
@@ -37,8 +37,7 @@ contract DeployScript is Script {
             usdc = 0x94a9D9AC8a22534E3FaCa9F4e7F2E2cf85d5E4C8; // Mock USDC
             ethUsdPriceFeed = 0xBC807A82cc5C6dCE270E2262328059f3B7eEaaaf; // Mock price feed
             relayer = 0xBC807A82cc5C6dCE270E2262328059f3B7eEaaaf; // Mock relayer
-        }
-        else if (block.chainid == 31337) {
+        } else if (block.chainid == 31337) {
             // Anvil/Local
             usdc = 0x94a9D9AC8a22534E3FaCa9F4e7F2E2cf85d5E4C8; // Mock USDC
             ethUsdPriceFeed = 0xBC807A82cc5C6dCE270E2262328059f3B7eEaaaf; // Mock price feed
@@ -51,7 +50,7 @@ contract DeployScript is Script {
     function run() public {
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
         address deployer = vm.addr(deployerPrivateKey);
-        
+
         console.log("Deploying contracts with address:", deployer);
         console.log("Network ID:", block.chainid);
         console.log("USDC Address:", usdc);
@@ -72,7 +71,7 @@ contract DeployScript is Script {
 
         // Set up cross-contract references
         console.log("Setting up cross-contract references...");
-        
+
         // Set Mizan address in BNPL contract
         bnplContract.updateMizanAddress(address(mizan));
         console.log("Mizan address set in BNPL contract");
@@ -101,15 +100,11 @@ contract DeployScript is Script {
     }
 
     // Function to deploy with custom addresses (for testing)
-    function runWithCustomAddresses(
-        address _usdc,
-        address _ethUsdPriceFeed,
-        address _relayer
-    ) public {
+    function runWithCustomAddresses(address _usdc, address _ethUsdPriceFeed, address _relayer) public {
         usdc = _usdc;
         ethUsdPriceFeed = _ethUsdPriceFeed;
         relayer = _relayer;
-        
+
         run();
     }
-} 
+}

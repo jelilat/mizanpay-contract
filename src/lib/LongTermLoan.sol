@@ -38,10 +38,7 @@ library LongTermLoan {
 
         // Calculate maximum borrowable amount based on LTV
         uint256 maxBorrowable = (totalStaked * MAX_LOAN_TO_COLLATERAL) / 100;
-        require(
-            amount + totalBorrowed <= maxBorrowable,
-            "Insufficient collateral"
-        );
+        require(amount + totalBorrowed <= maxBorrowable, "Insufficient collateral");
 
         // Mint loan token and transfer underlying token
         loanToken.mint(borrower, amount);
@@ -58,10 +55,7 @@ library LongTermLoan {
         address borrower,
         uint256 amount
     ) external returns (bool) {
-        require(
-            loanToken.balanceOf(borrower) >= amount,
-            "Insufficient loan balance"
-        );
+        require(loanToken.balanceOf(borrower) >= amount, "Insufficient loan balance");
 
         // Transfer repayment
         underlyingToken.safeTransferFrom(borrower, mizan, amount);
@@ -73,10 +67,7 @@ library LongTermLoan {
         return true;
     }
 
-    function getBorrowedAmount(
-        IMizanLoanToken loanToken,
-        address user
-    ) external view returns (uint256) {
+    function getBorrowedAmount(IMizanLoanToken loanToken, address user) external view returns (uint256) {
         return loanToken.balanceOf(user);
     }
 }

@@ -12,4 +12,4 @@ interface IFlashLoan {
         uint256 expiry;
         bytes32 nonce;
     }
-} 
+}
