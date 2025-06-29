@@ -20,7 +20,7 @@ contract BNPLCollateralLoan is Ownable {
         address collateralToken; // only ETH is supported for now
         uint256 collateralAmount;
         address loanToken; // only USDC is supported for now
-        uint256 loanAmount; 
+        uint256 loanAmount;
         uint256 productId;
         uint256 disbursedAt;
         uint256 repaidAmount;
@@ -78,17 +78,28 @@ contract BNPLCollateralLoan is Ownable {
         return uint256(answer);
     }
 
-    function calculateLoanEligibility(address token, uint256 loanAmountUSD) public view returns (uint256) {
+    function calculateLoanEligibility(address token, uint256 collateralAmount) public view returns (uint256) {
         require(whitelistedTokens[token], "Not accepted");
         uint256 price = getPrice(token); // price in 1e8 (USD per token)
-        
-        // Calculate required USD value of collateral: loanAmountUSD * 100 / LTV
-        uint256 requiredUSDValue = (loanAmountUSD * 100) / LTV;
-        
-        // Calculate required token amount: requiredUSDValue * 1e8 / price
-        uint256 requiredTokenAmount = (requiredUSDValue * 1e8 * 1e18) / price;
-        
-        return requiredTokenAmount;
+
+        // Convert to 1e6 scale: (1e18 * 1e8) / 1e20 = 1e6
+        uint256 usdValue = (collateralAmount * price) / 1e20;
+        uint256 maxLoanAmount = (usdValue * LTV) / 100;
+
+        return maxLoanAmount;
+    }
+
+    function calculateCollateralRequired(address token, uint256 loanAmount) public view returns (uint256) {
+        require(whitelistedTokens[token], "Token not accepted");
+        require(loanAmount > 0, "Invalid loan amount");
+
+        uint256 price = getPrice(token); // 1e8 from Chainlink
+
+        // collateralAmount = (loanAmount * 1e20) / (price * LTV / 100)
+        uint256 numerator = loanAmount * 1e20 * 100;
+        uint256 denominator = price * LTV;
+
+        return numerator / denominator; // returns collateral in 1e18
     }
 
     function depositCollateralAndBorrow(uint256 productId, uint256 plan, uint256 loanAmount) external payable {
@@ -99,10 +110,12 @@ contract BNPLCollateralLoan is Ownable {
 
         uint256 loanEligibility = calculateLoanEligibility(address(0), msg.value); // address(0) for ETH
         require(loanEligibility >= loanAmount, "Loan amount exceeds eligibility");
-        
+
         // Check if user has approved sufficient loan amount
         uint256 outstandingLoan = outstandingLoans[msg.sender];
-        require(IERC20(usdc).allowance(msg.sender, address(this)) >= loanAmount + outstandingLoan, "Insufficient allowance");
+        require(
+            IERC20(usdc).allowance(msg.sender, address(this)) >= loanAmount + outstandingLoan, "Insufficient allowance"
+        );
 
         Loan storage loan = loans[loanCounter];
         loan.borrower = msg.sender;
@@ -134,7 +147,7 @@ contract BNPLCollateralLoan is Ownable {
 
         // Transfer loan amount to borrower
         IERC20(usdc).transfer(msg.sender, loanAmount);
-        
+
         // Add earnings to product
         products[productId].totalEarnings += loanAmount;
 
@@ -165,7 +178,7 @@ contract BNPLCollateralLoan is Ownable {
 
             // Send back the collateral
             if (loan.collateralToken == address(0)) {
-                (bool success, ) = loan.borrower.call{value: loan.collateralAmount}("");
+                (bool success,) = loan.borrower.call{value: loan.collateralAmount}("");
                 require(success, "ETH transfer failed");
             } else {
                 IERC20(loan.collateralToken).transfer(loan.borrower, loan.collateralAmount);
@@ -180,14 +193,14 @@ contract BNPLCollateralLoan is Ownable {
 
     function addProduct(string memory name, address productAddress) external onlyOwner {
         require(productAddress != address(0), "Invalid product address");
-        
+
         Product storage product = products[productCounter];
         product.name = name;
         product.productAddress = productAddress;
         product.totalEarnings = 0;
         product.nextWithdrawDate = block.timestamp + 30 days;
         product.active = true;
-        
+
         emit ProductAdded(productCounter, name, productAddress);
         productCounter++;
     }
@@ -195,7 +208,7 @@ contract BNPLCollateralLoan is Ownable {
     function removeProduct(uint256 productId) external onlyOwner {
         require(productId < productCounter, "Product does not exist");
         require(products[productId].active, "Product already inactive");
-        
+
         products[productId].active = false;
         emit ProductRemoved(productId);
     }
@@ -207,7 +220,7 @@ contract BNPLCollateralLoan is Ownable {
         require(msg.sender == product.productAddress, "Not product owner");
         require(block.timestamp >= product.nextWithdrawDate, "Too early to withdraw");
         require(product.totalEarnings > 0, "No earnings to withdraw");
-        
+
         uint256 amountToWithdraw = getProductEarnings(productId);
         product.totalEarnings = 0;
         product.nextWithdrawDate = block.timestamp + 30 days;
@@ -217,7 +230,6 @@ contract BNPLCollateralLoan is Ownable {
         } else {
             IERC20(usdc).transfer(product.productAddress, amountToWithdraw);
         }
-        
 
         uint256 platformFee = (amountToWithdraw * PLATFORM_FEE) / 100;
         platformRevenue += platformFee;
